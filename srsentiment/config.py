@@ -46,11 +46,39 @@ class NewsSourcesConfig:
 
 
 @attrs.define
+class RedditConfig:
+    """Reddit configuration."""
+
+    enabled: bool = True
+    subreddits: List[str] = attrs.field(factory=lambda: [
+        "wallstreetbets", "stocks", "investing", "StockMarket"
+    ])
+
+
+@attrs.define
+class TwitterConfig:
+    """Twitter/X configuration."""
+
+    enabled: bool = False
+
+
+@attrs.define
+class SocialMediaConfig:
+    """Social media sources configuration."""
+
+    enabled: bool = True
+    max_posts_per_company: int = 20
+    reddit: RedditConfig = attrs.field(factory=RedditConfig)
+    twitter: TwitterConfig = attrs.field(factory=TwitterConfig)
+
+
+@attrs.define
 class ReportConfig:
     """Report generation configuration."""
 
     format: Literal["markdown", "html", "text"] = "markdown"
     include_summary: bool = True
+    include_social_media: bool = True
     max_articles_per_company: int = 10
     output_dir: str = "reports"
 
@@ -70,6 +98,7 @@ class Config:
 
     companies: List[Company] = attrs.field(factory=list)
     news_sources: NewsSourcesConfig = attrs.field(factory=NewsSourcesConfig)
+    social_media: SocialMediaConfig = attrs.field(factory=SocialMediaConfig)
     report: ReportConfig = attrs.field(factory=ReportConfig)
     claude: ClaudeConfig = attrs.field(factory=ClaudeConfig)
 

@@ -72,6 +72,12 @@ class ReportGenerator:
             lines.append(f"**Overall Sentiment:** {sentiment_emoji} {analysis.overall_sentiment.upper()}")
             lines.append(f" (Score: {analysis.sentiment_score:+.2f})\n")
 
+            # Social media sentiment if available
+            if hasattr(analysis, 'social_sentiment') and analysis.social_sentiment:
+                social_emoji = self._get_sentiment_emoji(analysis.social_sentiment)
+                lines.append(f"**Social Media Sentiment:** {social_emoji} {analysis.social_sentiment.upper()}")
+                lines.append(f" (Score: {analysis.social_sentiment_score:+.2f})\n")
+
             # Key themes
             if analysis.key_themes:
                 lines.append("### 🎯 Key Themes\n")
@@ -105,6 +111,21 @@ class ReportGenerator:
                     lines.append(f"   - Source: {article.source}")
                     lines.append(f"   - Published: {article.published_at}")
                     lines.append(f"   - [Read more]({article.url})")
+                lines.append("")
+
+            # Social media posts
+            if hasattr(analysis, 'social_posts') and analysis.social_posts:
+                lines.append("### 💬 Social Media Highlights\n")
+                for i, post in enumerate(analysis.social_posts[:10], 1):
+                    # Truncate long posts
+                    text_preview = post.text[:200] + "..." if len(post.text) > 200 else post.text
+                    lines.append(f"{i}. **{post.platform}** by u/{post.author}")
+                    lines.append(f"   - {text_preview}")
+                    if hasattr(post, 'engagement') and post.engagement:
+                        score = post.engagement.get('score', 0)
+                        comments = post.engagement.get('num_comments', 0)
+                        lines.append(f"   - Engagement: {score}⬆️ {comments}💬")
+                    lines.append(f"   - [View post]({post.url})")
                 lines.append("")
 
             lines.append("---\n")

@@ -42,10 +42,31 @@ news_sources:
       - "https://feeds.finance.yahoo.com/rss/2.0/headline"
       - "https://www.cnbc.com/id/100003114/device/rss/rss.html"
 
+# Social media sources configuration
+social_media:
+  enabled: true  # Enable/disable social media sentiment analysis
+  max_posts_per_company: 20
+
+  # Reddit configuration
+  reddit:
+    enabled: true
+    subreddits:
+      - "wallstreetbets"
+      - "stocks"
+      - "investing"
+      - "StockMarket"
+      - "options"
+      - "Daytrading"
+
+  # Twitter/X configuration (requires API credentials)
+  twitter:
+    enabled: false  # Not yet implemented
+
 # Report configuration
 report:
   format: "markdown"  # Options: markdown, html, text
   include_summary: true
+  include_social_media: true  # Include social media sentiment in reports
   max_articles_per_company: 10
   output_dir: "reports"
 

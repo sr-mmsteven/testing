@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from .news_fetcher import NewsFetcher
+from .social_media_fetcher import SocialMediaFetcher
 from .sentiment_analyzer import SentimentAnalyzer
 from .report_generator import ReportGenerator
 from .config import load_config, Config
@@ -147,8 +148,8 @@ def main(config, output, format, companies, hours, no_banner):
 
     # Initialize components
     try:
-        breakpoint()
         news_fetcher = NewsFetcher(config_data)
+        social_media_fetcher = SocialMediaFetcher(config_data) if hasattr(config_data, 'social_media') else None
         sentiment_analyzer = SentimentAnalyzer(config_data)
         report_generator = ReportGenerator(config_data)
     except Exception as e:
@@ -176,10 +177,20 @@ def main(config, output, format, companies, hours, no_banner):
                 click.echo(click.style(f"  ✗ Error fetching news: {e}", fg='red'))
                 continue
 
+            # Fetch social media posts if enabled
+            social_posts = []
+            if social_media_fetcher and hasattr(config_data, 'social_media') and config_data.social_media.enabled:
+                click.echo(f"  💬 Fetching social media posts...")
+                try:
+                    social_posts = social_media_fetcher.fetch_company_posts(company, lookback_hours)
+                    click.echo(click.style(f"  ✓ Found {len(social_posts)} posts", fg='green'))
+                except Exception as e:
+                    click.echo(click.style(f"  ✗ Error fetching social media: {e}", fg='red'))
+
             # Analyze sentiment
             click.echo(f"  🤖 Analyzing sentiment with Claude...")
             try:
-                analysis = sentiment_analyzer.analyze_company_news(company, articles)
+                analysis = sentiment_analyzer.analyze_company_news(company, articles, social_posts)
                 sentiment_color = 'green' if 'positive' in analysis.overall_sentiment.lower() else (
                     'red' if 'negative' in analysis.overall_sentiment.lower() else 'yellow'
                 )
@@ -187,6 +198,14 @@ def main(config, output, format, companies, hours, no_banner):
                     f"  ✓ Sentiment: {analysis.overall_sentiment.upper()} (Score: {analysis.sentiment_score:+.2f})",
                     fg=sentiment_color
                 ))
+                if social_posts and analysis.social_sentiment:
+                    social_color = 'green' if 'positive' in analysis.social_sentiment.lower() else (
+                        'red' if 'negative' in analysis.social_sentiment.lower() else 'yellow'
+                    )
+                    click.echo(click.style(
+                        f"  ✓ Social: {analysis.social_sentiment.upper()} (Score: {analysis.social_sentiment_score:+.2f})",
+                        fg=social_color
+                    ))
                 analyses.append(analysis)
             except Exception as e:
                 click.echo(click.style(f"  ✗ Error analyzing sentiment: {e}", fg='red'))
