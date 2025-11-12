@@ -20,10 +20,42 @@ A Python tool that fetches daily news for specified companies and uses **Claude 
 
 ### 2. Installation
 
+#### Option A: Using UV (Recommended - Fast!)
+
+[UV](https://github.com/astral-sh/uv) is a blazingly fast Python package manager written in Rust. It's 10-100x faster than pip!
+
 ```bash
 # Clone or download this repository
 git clone <your-repo-url>
 cd testing
+
+# Install uv (if you don't have it)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate  # On Unix/macOS (or .venv\Scripts\activate on Windows)
+
+uv pip install -r requirements.txt
+# OR install from pyproject.toml:
+# uv pip install -e .
+
+# Set up environment variables
+cp .env.example .env
+```
+
+#### Option B: Using pip (Traditional)
+
+```bash
+# Clone or download this repository
+git clone <your-repo-url>
+cd testing
+
+# Create virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # On Unix/macOS
+# OR
+venv\Scripts\activate  # On Windows
 
 # Install dependencies
 pip install -r requirements.txt
@@ -194,18 +226,20 @@ crontab -e
 
 ```
 testing/
-├── main.py                 # Main entry point
-├── config.yaml             # Configuration file
-├── requirements.txt        # Python dependencies
-├── .env                    # Environment variables (create from .env.example)
-├── .env.example            # Example environment file
-├── README.md               # This file
+├── main.py                    # Main entry point
+├── config.yaml                # Configuration file
+├── pyproject.toml             # Project metadata & dependencies (UV/pip)
+├── requirements.txt           # Python dependencies (legacy support)
+├── .python-version            # Python version specification for UV
+├── .env                       # Environment variables (create from .env.example)
+├── .env.example               # Example environment file
+├── README.md                  # This file
 ├── src/
 │   ├── __init__.py
-│   ├── news_fetcher.py     # News fetching logic
+│   ├── news_fetcher.py        # News fetching logic
 │   ├── sentiment_analyzer.py  # Claude AI sentiment analysis
 │   └── report_generator.py    # Report generation
-└── reports/                # Generated reports (created automatically)
+└── reports/                   # Generated reports (created automatically)
 ```
 
 ## How It Works
@@ -214,6 +248,61 @@ testing/
 2. **Sentiment Analysis**: Each company's news is sent to Claude AI with a detailed prompt asking for sentiment analysis
 3. **Report Generation**: Claude's analysis is formatted into a beautiful report with overall sentiment, key themes, and market impact
 4. **Output**: The report is saved to the `reports/` directory in your chosen format
+
+## Package Management with UV
+
+This project uses [UV](https://github.com/astral-sh/uv) for modern, fast package management. UV is 10-100x faster than pip and provides better dependency resolution.
+
+### Why UV?
+
+- **Blazingly Fast**: Written in Rust, UV is significantly faster than pip
+- **Better Resolution**: Smarter dependency resolver prevents conflicts
+- **Built-in Venv**: Automatically manages virtual environments
+- **Lock File**: `uv.lock` ensures reproducible installs
+- **Compatible**: Works with standard `pyproject.toml` and `requirements.txt`
+
+### Common UV Commands
+
+```bash
+# Install/sync dependencies
+uv sync
+
+# Add a new dependency
+uv add package-name
+
+# Add a dev dependency
+uv add --dev pytest
+
+# Remove a dependency
+uv remove package-name
+
+# Update all dependencies
+uv sync --upgrade
+
+# Run a command in the virtual environment
+uv run python main.py
+
+# Run script without activating venv
+uv run main.py
+
+# Show installed packages
+uv pip list
+```
+
+### Running Without Activating Venv
+
+With UV, you don't always need to activate the virtual environment:
+
+```bash
+# Instead of activating and running:
+# source .venv/bin/activate && python main.py
+
+# Just use uv run:
+uv run python main.py
+
+# Or even simpler:
+uv run main.py
+```
 
 ## Troubleshooting
 
