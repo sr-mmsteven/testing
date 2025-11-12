@@ -2,10 +2,9 @@
 News fetcher module - fetches news articles from various sources
 """
 import os
-import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
-from urllib.parse import quote
+from newsapi import NewsApiClient
 
 
 class NewsArticle:
@@ -29,13 +28,18 @@ class NewsFetcher:
         self.config = config
         self.newsapi_key = os.getenv('NEWSAPI_KEY')
 
+        # Initialize NewsAPI client if key is available
+        self.newsapi_client = None
+        if self.newsapi_key:
+            self.newsapi_client = NewsApiClient(api_key=self.newsapi_key)
+
     def fetch_company_news(self, company: Dict, lookback_hours: int = 24) -> List[NewsArticle]:
         """Fetch news for a specific company"""
         articles = []
 
-        # Fetch from NewsAPI if enabled and key is available
+        # Fetch from NewsAPI if enabled and client is available
         if (self.config.get('news_sources', {}).get('newsapi', {}).get('enabled', False)
-            and self.newsapi_key):
+            and self.newsapi_client):
             articles.extend(self._fetch_from_newsapi(company, lookback_hours))
 
         # RSS feeds disabled (requires additional dependencies)
@@ -53,7 +57,7 @@ class NewsFetcher:
         return articles[:max_articles]
 
     def _fetch_from_newsapi(self, company: Dict, lookback_hours: int) -> List[NewsArticle]:
-        """Fetch news from NewsAPI.org"""
+        """Fetch news from NewsAPI.org using the official newsapi-python client"""
         articles = []
 
         try:
@@ -62,37 +66,36 @@ class NewsFetcher:
             query = ' OR '.join(f'"{keyword}"' for keyword in keywords)
 
             # Calculate date range
-            from_date = (datetime.now() - timedelta(hours=lookback_hours)).isoformat()
+            from_date = (datetime.now() - timedelta(hours=lookback_hours)).strftime('%Y-%m-%d')
 
-            # Make API request
-            url = 'https://newsapi.org/v2/everything'
-            params = {
-                'q': query,
-                'from': from_date,
-                'language': self.config['news_sources']['newsapi'].get('language', 'en'),
-                'sortBy': self.config['news_sources']['newsapi'].get('sort_by', 'publishedAt'),
-                'apiKey': self.newsapi_key
-            }
+            # Get configuration options
+            language = self.config['news_sources']['newsapi'].get('language', 'en')
+            sort_by = self.config['news_sources']['newsapi'].get('sort_by', 'publishedAt')
 
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
+            # Fetch articles using NewsAPI client
+            response = self.newsapi_client.get_everything(
+                q=query,
+                from_param=from_date,
+                language=language,
+                sort_by=sort_by
+            )
 
-            data = response.json()
+            # Process articles from response
+            if response.get('status') == 'ok':
+                for article in response.get('articles', []):
+                    if article.get('title') and article.get('title') != '[Removed]':
+                        articles.append(NewsArticle(
+                            title=article.get('title', ''),
+                            description=article.get('description', ''),
+                            url=article.get('url', ''),
+                            published_at=article.get('publishedAt', ''),
+                            source=article.get('source', {}).get('name', 'NewsAPI')
+                        ))
+            else:
+                print(f"Warning: NewsAPI returned status '{response.get('status')}' for {company['name']}")
 
-            for article in data.get('articles', []):
-                if article.get('title') and article.get('title') != '[Removed]':
-                    articles.append(NewsArticle(
-                        title=article.get('title', ''),
-                        description=article.get('description', ''),
-                        url=article.get('url', ''),
-                        published_at=article.get('publishedAt', ''),
-                        source=article.get('source', {}).get('name', 'NewsAPI')
-                    ))
-
-        except requests.exceptions.RequestException as e:
-            print(f"Warning: Failed to fetch from NewsAPI for {company['name']}: {e}")
         except Exception as e:
-            print(f"Warning: Error processing NewsAPI results for {company['name']}: {e}")
+            print(f"Warning: Failed to fetch from NewsAPI for {company['name']}: {e}")
 
         return articles
 
