@@ -77,7 +77,7 @@ Your report will be generated in the `reports/` directory!
 python main.py
 
 # Generate report for specific companies
-python main.py --companies Apple Tesla
+python main.py --companies Apple --companies Tesla
 
 # Generate HTML report instead of Markdown
 python main.py --format html
@@ -92,9 +92,10 @@ python main.py --hours 48
 -c, --config PATH       Path to configuration file (default: config.yaml)
 -o, --output PATH       Output file path (overrides config)
 --format FORMAT         Report format: markdown, html, or text
---companies NAMES       Specific companies to analyze (space-separated)
+--companies TEXT        Specific companies to analyze (can be used multiple times)
 --hours N               Hours to look back for news (overrides config)
 --no-banner             Suppress banner output
+--help                  Show help message and exit
 ```
 
 ### Examples
@@ -104,7 +105,7 @@ python main.py --hours 48
 python main.py --companies Tesla --format text
 
 # Last 12 hours of news for Apple and Microsoft
-python main.py --companies Apple Microsoft --hours 12
+python main.py --companies Apple --companies Microsoft --hours 12
 
 # Generate HTML report to specific location
 python main.py --format html --output ~/Desktop/report.html
