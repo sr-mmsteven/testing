@@ -3,9 +3,11 @@ News fetcher module - fetches news articles from various sources
 """
 import os
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING
 from newsapi import NewsApiClient
 import attrs
+
+from .config import Config, Company
 
 @attrs.define
 class NewsArticle:
@@ -21,29 +23,25 @@ class NewsArticle:
 @attrs.define
 class NewsFetcher:
     """Fetches news from multiple sources"""
-    config: Dict
+    config: Config
+    newsapi_client: NewsApiClient = attrs.field(
+        init=False, default=attrs.Factory(
+            lambda self: NewsApiClient(
+                api_key=self.config.news_sources.newsapi.api_key),
+            takes_self=True
+        )
+    )
 
-
-    def __init__(self, config: Dict):
-        self.config = config
-        self.newsapi_key = os.getenv('NEWSAPI_KEY')
-
-        # Initialize NewsAPI client if key is available
-        self.newsapi_client = None
-        if self.newsapi_key:
-            self.newsapi_client = NewsApiClient(api_key=self.newsapi_key)
-
-    def fetch_company_news(self, company: Dict, lookback_hours: int = 24) -> List[NewsArticle]:
+    def fetch_company_news(self, company: "Company", lookback_hours: int = 24) -> List[NewsArticle]:
         """Fetch news for a specific company"""
         articles = []
 
         # Fetch from NewsAPI if enabled and client is available
-        if (self.config.get('news_sources', {}).get('newsapi', {}).get('enabled', False)
-            and self.newsapi_client):
+        if self.config.news_sources.newsapi.enabled and self.newsapi_client:
             articles.extend(self._fetch_from_newsapi(company, lookback_hours))
 
         # RSS feeds disabled (requires additional dependencies)
-        # if self.config.get('news_sources', {}).get('rss_feeds', {}).get('enabled', False):
+        # if self.config.news_sources.rss_feeds.enabled:
         #     articles.extend(self._fetch_from_rss(company, lookback_hours))
 
         # Remove duplicates based on title similarity
@@ -53,24 +51,24 @@ class NewsFetcher:
         articles.sort(key=lambda x: x.published_at, reverse=True)
 
         # Limit number of articles
-        max_articles = self.config.get('report', {}).get('max_articles_per_company', 10)
+        max_articles = self.config.report.max_articles_per_company
         return articles[:max_articles]
 
-    def _fetch_from_newsapi(self, company: Dict, lookback_hours: int) -> List[NewsArticle]:
+    def _fetch_from_newsapi(self, company: "Company", lookback_hours: int) -> List[NewsArticle]:
         """Fetch news from NewsAPI.org using the official newsapi-python client"""
         articles = []
 
         try:
             # Build search query from company keywords
-            keywords = company.get('keywords', [company['name']])
+            keywords = company.keywords if company.keywords else [company.name]
             query = ' OR '.join(f'"{keyword}"' for keyword in keywords)
 
             # Calculate date range
             from_date = (datetime.now() - timedelta(hours=lookback_hours)).strftime('%Y-%m-%d')
 
             # Get configuration options
-            language = self.config['news_sources']['newsapi'].get('language', 'en')
-            sort_by = self.config['news_sources']['newsapi'].get('sort_by', 'publishedAt')
+            language = self.config.news_sources.newsapi.language
+            sort_by = self.config.news_sources.newsapi.sort_by
 
             # Fetch articles using NewsAPI client
             response = self.newsapi_client.get_everything(
@@ -92,14 +90,14 @@ class NewsFetcher:
                             source=article.get('source', {}).get('name', 'NewsAPI')
                         ))
             else:
-                print(f"Warning: NewsAPI returned status '{response.get('status')}' for {company['name']}")
+                print(f"Warning: NewsAPI returned status '{response.get('status')}' for {company.name}")
 
         except Exception as e:
-            print(f"Warning: Failed to fetch from NewsAPI for {company['name']}: {e}")
+            print(f"Warning: Failed to fetch from NewsAPI for {company.name}: {e}")
 
         return articles
 
-    def _fetch_from_rss(self, company: Dict, lookback_hours: int) -> List[NewsArticle]:
+    def _fetch_from_rss(self, company: "Company", lookback_hours: int) -> List[NewsArticle]:
         """Fetch news from RSS feeds (currently disabled - requires feedparser)"""
         # RSS feed functionality disabled to reduce dependencies
         # To enable: install feedparser and uncomment this code

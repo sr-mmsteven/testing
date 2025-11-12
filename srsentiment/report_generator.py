@@ -3,22 +3,28 @@ Report generator module - generates formatted reports from sentiment analysis
 """
 import os
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, TYPE_CHECKING
 from pathlib import Path
 
+if TYPE_CHECKING:
+    from .config import Config
+import attrs
 
+
+@attrs.define
 class ReportGenerator:
-    """Generates formatted reports from sentiment analysis"""
+    config: Config
+    output_dir: str = attrs.field(
+        init=False,
+        default=attrs.Factory(lambda self: self.config.report.output_dir, takes_self=True),
+        )
+    format: str = attrs.field(init=False, default=attrs.Factory(lambda self: self.config.report.format, takes_self=True))
 
-    def __init__(self, config: Dict):
-        self.config = config
-        self.output_dir = config.get('report', {}).get('output_dir', 'reports')
-        self.format = config.get('report', {}).get('format', 'markdown')
-
+    def __attrs_post_init__(self):
         # Create output directory if it doesn't exist
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
 
-    def generate_report(self, analyses: List, timestamp: datetime = None) -> str:
+    def generate_report(self, analyses: List, timestamp: datetime | None = None) -> str:
         """Generate a report from sentiment analyses"""
         if timestamp is None:
             timestamp = datetime.now()
@@ -52,7 +58,7 @@ class ReportGenerator:
         lines.append("---\n")
 
         # Executive Summary
-        if self.config.get('report', {}).get('include_summary', True):
+        if self.config.report.include_summary:
             lines.append("## Executive Summary\n")
             lines.append(self._generate_executive_summary(analyses))
             lines.append("\n---\n")
@@ -132,7 +138,7 @@ class ReportGenerator:
         html.append("</div>")
 
         # Executive Summary
-        if self.config.get('report', {}).get('include_summary', True):
+        if self.config.report.include_summary:
             html.append("<div class='executive-summary'>")
             html.append("<h2>Executive Summary</h2>")
             html.append(f"<p>{self._generate_executive_summary(analyses)}</p>")
@@ -198,7 +204,7 @@ class ReportGenerator:
         lines.append("")
 
         # Executive Summary
-        if self.config.get('report', {}).get('include_summary', True):
+        if self.config.report.include_summary:
             lines.append("EXECUTIVE SUMMARY")
             lines.append("-" * 80)
             lines.append(self._generate_executive_summary(analyses))

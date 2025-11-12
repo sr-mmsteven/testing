@@ -29,6 +29,7 @@ dependencies = [
     "click>=8.1.0",
     "newsapi-python>=0.2.7",
     "attrs>=25.3.0",
+    "cattrs>=24.1.3",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,9 @@ Documentation = "https://github.com/yourusername/news-sentiment-report#readme"
 Repository = "https://github.com/yourusername/news-sentiment-report"
 Issues = "https://github.com/yourusername/news-sentiment-report/issues"
 
+[[tool.uv.index]]
+url = "http://gitlabvm.srllc.com/api/v4/projects/400/packages/pypi/simple"
+
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
@@ -59,9 +63,6 @@ packages = ["srsentiment"]
 
 [tool.hatch.build.hooks.vcs]
 version-file = "srsentiment/_version.py"
-
-[[tool.uv.index]]
-url = "http://gitlabvm.srllc.com/api/v4/projects/400/packages/pypi/simple"
 
 [dependency-groups]
 dev =[]

@@ -2,45 +2,60 @@
 Sentiment analyzer module - uses Claude API to analyze news sentiment
 """
 import os
-from typing import List, Dict
+from typing import List, Dict, TYPE_CHECKING
 from anthropic import Anthropic
+import attrs
+
+if TYPE_CHECKING:
+    from .config import Config, Company
 
 
+@attrs.define
 class SentimentAnalysis:
-    """Represents sentiment analysis results for a company"""
-    def __init__(self, company_name: str, ticker: str):
-        self.company_name = company_name
-        self.ticker = ticker
-        self.overall_sentiment = ""  # positive, negative, neutral, mixed
-        self.sentiment_score = 0.0  # -1.0 to 1.0
-        self.key_themes = []
-        self.article_analyses = []
-        self.summary = ""
-        self.market_impact = ""
+    company_name: str
+    ticker: str
+    overall_sentiment: str = attrs.field(default="", init=False)  # positive, negative, neutral, mixed
+    sentiment_score: float = attrs.field(default=0.0, init=False)  # -1.0 to 1.0
+    key_themes: list[str] = attrs.field(factory=list, init=False)
+    article_analyses: list[str] = attrs.field(factory=list, init=False)
+    summary: str = attrs.field(default="", init=False)
+    market_impact: str = attrs.field(default="", init=False)
+    articles: list = attrs.field(factory=list, init=False)
+
 
     def __repr__(self):
         return (f"SentimentAnalysis(company='{self.company_name}', "
                 f"sentiment='{self.overall_sentiment}', score={self.sentiment_score})")
 
 
+@attrs.define
 class SentimentAnalyzer:
     """Analyzes news sentiment using Claude API"""
+    config: Config
+    api_key: str = attrs.field(init=False, factory=lambda: os.getenv('ANTHROPIC_API_KEY', ''),
+                               validator=attrs.validators.min_len(10))
+    client: Anthropic = attrs.field(init=False, default=attrs.Factory(
+        lambda self: Anthropic(api_key=self.api_key),
+        takes_self=True
+    ))
 
-    def __init__(self, config: Dict):
-        self.config = config
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
 
-        self.client = Anthropic(api_key=api_key)
-        self.model = config.get('claude', {}).get('model', 'claude-sonnet-4-5-20250929')
-        self.max_tokens = config.get('claude', {}).get('max_tokens', 4096)
-        self.temperature = config.get('claude', {}).get('temperature', 0.3)
+    @property
+    def model(self):
+        return self.config.claude.model
+    
+    @property
+    def max_tokens(self):
+        return self.config.claude.max_tokens
+    
+    @property
+    def temperature(self):
+        return self.config.claude.temperature
 
-    def analyze_company_news(self, company: Dict, articles: List) -> SentimentAnalysis:
+    def analyze_company_news(self, company: "Company", articles: List) -> SentimentAnalysis:
         """Analyze sentiment for all news articles about a company"""
         # if not articles:
-        #     analysis = SentimentAnalysis(company['name'], company.get('ticker', ''))
+        #     analysis = SentimentAnalysis(company.name, company.ticker)
         #     analysis.overall_sentiment = "neutral"
         #     analysis.summary = "No recent news articles found."
         #     return analysis
@@ -66,14 +81,14 @@ class SentimentAnalyzer:
             return analysis
 
         except Exception as e:
-            print(f"Error analyzing sentiment for {company['name']}: {e}")
+            print(f"Error analyzing sentiment for {company.name}: {e}")
             # Return a basic analysis on error
-            analysis = SentimentAnalysis(company['name'], company.get('ticker', ''))
+            analysis = SentimentAnalysis(company.name, company.ticker)
             analysis.overall_sentiment = "error"
             analysis.summary = f"Failed to analyze sentiment: {str(e)}"
             return analysis
 
-    def _build_analysis_prompt(self, company: Dict, articles: List) -> str:
+    def _build_analysis_prompt(self, company: "Company", articles: List) -> str:
         """Build the prompt for Claude API"""
         articles_text = []
 
@@ -87,7 +102,7 @@ class SentimentAnalyzer:
                 f"URL: {article.url}\n"
             )
 
-        prompt = f"""You are a financial news analyst. Analyze social media and any of the following news articles about {company['name']} ({company.get('ticker', 'N/A')}) and provide a comprehensive sentiment analysis.
+        prompt = f"""You are a financial news analyst. Analyze social media and any of the following news articles about {company.name} ({company.ticker}) and provide a comprehensive sentiment analysis.
 
 News Articles:
 {chr(10).join(articles_text)}
@@ -116,10 +131,10 @@ Be objective, balanced, and focus on facts. Consider both immediate reactions an
 
         return prompt
 
-    def _parse_analysis_response(self, company: Dict, response_text: str,
+    def _parse_analysis_response(self, company: "Company", response_text: str,
                                   articles: List) -> SentimentAnalysis:
         """Parse Claude's response into structured analysis"""
-        analysis = SentimentAnalysis(company['name'], company.get('ticker', ''))
+        analysis = SentimentAnalysis(company.name, company.ticker)
 
         # Extract sections from response
         sections = {}

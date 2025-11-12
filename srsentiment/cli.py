@@ -7,30 +7,27 @@ to generate sentiment analysis reports.
 """
 import sys
 import os
-import yaml
 import click
 from datetime import datetime
-from pathlib import Path
 from dotenv import load_dotenv
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from news_fetcher import NewsFetcher
-from sentiment_analyzer import SentimentAnalyzer
-from report_generator import ReportGenerator
+from .news_fetcher import NewsFetcher
+from .sentiment_analyzer import SentimentAnalyzer
+from .report_generator import ReportGenerator
+from .config import load_config, Config
 
 
-def load_config(config_path: str = 'config.yaml') -> dict:
-    """Load configuration from YAML file"""
+def load_config_with_error_handling(config_path: str = 'config.yaml') -> Config:
+    """Load configuration from YAML file with error handling"""
     try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        return config
+        return load_config(config_path)
     except FileNotFoundError:
         click.echo(click.style(f"Error: Configuration file '{config_path}' not found.", fg='red'))
         sys.exit(1)
-    except yaml.YAMLError as e:
+    except Exception as e:
         click.echo(click.style(f"Error: Failed to parse configuration file: {e}", fg='red'))
         sys.exit(1)
 
@@ -129,27 +126,28 @@ def main(config, output, format, companies, hours, no_banner):
 
     # Load configuration
     click.echo(f"📋 Loading configuration from '{config}'...")
-    config_data = load_config(config)
+    config_data = load_config_with_error_handling(config)
 
     # Override config with command line arguments
     if format:
-        config_data.setdefault('report', {})['format'] = format
+        config_data.report.format = format
 
     if hours:
-        config_data.setdefault('news_sources', {}).setdefault('newsapi', {})['lookback_hours'] = hours
+        config_data.news_sources.newsapi.lookback_hours = hours
 
     # Filter companies if specified
-    companies_list = config_data.get('companies', [])
+    companies_list = config_data.companies
     if companies:
-        companies_list = [c for c in companies_list if c['name'] in companies]
+        companies_list = [c for c in companies_list if c.name in companies]
         if not companies_list:
             click.echo(click.style(f"Error: No matching companies found for: {companies}", fg='red'))
             sys.exit(1)
 
-    click.echo(f"📈 Analyzing {len(companies_list)} companies: {', '.join(c['name'] for c in companies_list)}\n")
+    click.echo(f"📈 Analyzing {len(companies_list)} companies: {', '.join(c.name for c in companies_list)}\n")
 
     # Initialize components
     try:
+        breakpoint()
         news_fetcher = NewsFetcher(config_data)
         sentiment_analyzer = SentimentAnalyzer(config_data)
         report_generator = ReportGenerator(config_data)
@@ -159,15 +157,15 @@ def main(config, output, format, companies, hours, no_banner):
 
     # Process each company
     analyses = []
-    lookback_hours = config_data.get('news_sources', {}).get('newsapi', {}).get('lookback_hours', 24)
+    lookback_hours = config_data.news_sources.newsapi.lookback_hours
 
     with click.progressbar(
         companies_list,
         label='Processing companies',
-        item_show_func=lambda c: c['name'] if c else ''
+        item_show_func=lambda c: c.name if c else ''
     ) as companies_bar:
         for i, company in enumerate(companies_bar, 1):
-            click.echo(f"\n[{i}/{len(companies_list)}] Processing {company['name']} ({company.get('ticker', 'N/A')})...")
+            click.echo(f"\n[{i}/{len(companies_list)}] Processing {company.name} ({company.ticker})...")
 
             # Fetch news
             click.echo(f"  📰 Fetching news articles...")
