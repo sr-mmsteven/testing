@@ -1,0 +1,56 @@
+# News Sentiment Report Configuration
+
+# Companies to track
+companies:
+  - name: "Apple"
+    ticker: "AAPL"
+    keywords:
+      - "Apple Inc"
+      - "AAPL"
+      - "iPhone"
+      - "Tim Cook"
+
+  - name: "Microsoft"
+    ticker: "MSFT"
+    keywords:
+      - "Microsoft"
+      - "MSFT"
+      - "Azure"
+      - "Satya Nadella"
+
+  - name: "Tesla"
+    ticker: "TSLA"
+    keywords:
+      - "Tesla"
+      - "TSLA"
+      - "Elon Musk"
+      - "electric vehicle"
+
+# News sources configuration
+news_sources:
+  # NewsAPI.org (free tier: 100 requests/day)
+  newsapi:
+    enabled: true
+    lookback_hours: 24
+    language: "en"
+    sort_by: "publishedAt"
+
+  # RSS feeds (always free)
+  rss_feeds:
+    enabled: true
+    feeds:
+      - "https://feeds.finance.yahoo.com/rss/2.0/headline"
+      - "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+
+# Report configuration
+report:
+  format: "markdown"  # Options: markdown, html, text
+  include_summary: true
+  max_articles_per_company: 10
+  output_dir: "reports"
+
+# Claude API configuration
+claude:
+  model: "claude-sonnet-4-5-20250929"
+  max_tokens: 4096
+  temperature: 0.3
