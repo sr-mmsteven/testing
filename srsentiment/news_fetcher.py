@@ -5,24 +5,24 @@ import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from newsapi import NewsApiClient
+import attrs
 
-
+@attrs.define
 class NewsArticle:
-    """Represents a news article"""
-    def __init__(self, title: str, description: str, url: str,
-                 published_at: str, source: str):
-        self.title = title
-        self.description = description
-        self.url = url
-        self.published_at = published_at
-        self.source = source
-
+    title: str
+    description: str
+    url: str
+    published_at: str
+    source: str
     def __repr__(self):
         return f"NewsArticle(title='{self.title[:50]}...', source='{self.source}')"
 
 
+@attrs.define
 class NewsFetcher:
     """Fetches news from multiple sources"""
+    config: Dict
+
 
     def __init__(self, config: Dict):
         self.config = config

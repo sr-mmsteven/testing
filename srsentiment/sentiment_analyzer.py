@@ -39,11 +39,11 @@ class SentimentAnalyzer:
 
     def analyze_company_news(self, company: Dict, articles: List) -> SentimentAnalysis:
         """Analyze sentiment for all news articles about a company"""
-        if not articles:
-            analysis = SentimentAnalysis(company['name'], company.get('ticker', ''))
-            analysis.overall_sentiment = "neutral"
-            analysis.summary = "No recent news articles found."
-            return analysis
+        # if not articles:
+        #     analysis = SentimentAnalysis(company['name'], company.get('ticker', ''))
+        #     analysis.overall_sentiment = "neutral"
+        #     analysis.summary = "No recent news articles found."
+        #     return analysis
 
         # Build prompt with all articles
         prompt = self._build_analysis_prompt(company, articles)
@@ -87,7 +87,7 @@ class SentimentAnalyzer:
                 f"URL: {article.url}\n"
             )
 
-        prompt = f"""You are a financial news analyst. Analyze the following news articles about {company['name']} ({company.get('ticker', 'N/A')}) and provide a comprehensive sentiment analysis.
+        prompt = f"""You are a financial news analyst. Analyze social media and any of the following news articles about {company['name']} ({company.get('ticker', 'N/A')}) and provide a comprehensive sentiment analysis.
 
 News Articles:
 {chr(10).join(articles_text)}
