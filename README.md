@@ -77,6 +77,15 @@ NEWSAPI_KEY=your_newsapi_key_here
 **Getting API Keys:**
 - **Anthropic API Key**: Sign up at https://console.anthropic.com/
 - **NewsAPI Key**: Get a free key at https://newsapi.org/ (100 requests/day on free tier)
+- **Reddit API Credentials** (required for social media sentiment):
+
+  See [REDDIT_SETUP.md](REDDIT_SETUP.md) for detailed setup instructions.
+
+  Quick setup:
+  1. Go to https://www.reddit.com/prefs/apps
+  2. Click "create app" and select **"script"** type
+  3. Copy your client ID and secret
+  4. Add `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and `REDDIT_USER_AGENT` to your `.env` file
 
 ### 4. Customize Companies
 
@@ -336,6 +345,14 @@ Make sure you've:
 ### "NEWSAPI_KEY is not set" warning
 
 This is just a warning. The script will still work using RSS feeds, but news coverage may be limited. Get a free NewsAPI key at https://newsapi.org/
+
+### Reddit API 403 errors
+
+If you see "Reddit API not configured" or 403 errors:
+1. Make sure you've created a Reddit app at https://www.reddit.com/prefs/apps
+2. Add `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and `REDDIT_USER_AGENT` to your `.env` file
+3. The credentials must be for a "script" type app (not "web app" or "installed app")
+4. Verify your Reddit account is in good standing and not shadowbanned
 
 ### No articles found
 

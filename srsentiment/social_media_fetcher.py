@@ -1,11 +1,11 @@
 """
 Social media fetcher module - fetches posts from social media platforms
 """
-import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import attrs
 import time
+import praw
 
 from .config import Config, Company
 
@@ -29,6 +29,25 @@ class SocialMediaPost:
 class SocialMediaFetcher:
     """Fetches posts from social media platforms"""
     config: Config
+    _reddit: Optional[praw.Reddit] = None
+
+    def __attrs_post_init__(self):
+        """Initialize Reddit API client with OAuth"""
+        reddit_config = self.config.social_media_sources.reddit
+        if reddit_config.enabled and reddit_config.client_id and reddit_config.client_secret:
+            try:
+                self._reddit = praw.Reddit(
+                    client_id=reddit_config.client_id,
+                    client_secret=reddit_config.client_secret,
+                    user_agent=reddit_config.user_agent
+                )
+                # Test the connection
+                self._reddit.read_only = True
+                print(f"✅ Successfully connected to Reddit API (read-only mode)")
+            except Exception as e:
+                print(f"⚠️  Failed to initialize Reddit API: {e}")
+                print(f"   Reddit posts will be skipped.")
+                self._reddit = None
 
     def fetch_company_posts(self, company: "Company", lookback_hours: int = 24) -> List[SocialMediaPost]:
         """Fetch social media posts for a specific company"""
@@ -46,8 +65,13 @@ class SocialMediaFetcher:
         return posts[:max_posts]
 
     def _fetch_from_reddit(self, company: "Company", lookback_hours: int) -> List[SocialMediaPost]:
-        """Fetch posts from Reddit using the public API"""
+        """Fetch posts from Reddit using PRAW (OAuth API)"""
         posts = []
+
+        # Check if Reddit client is initialized
+        if not self._reddit:
+            print(f"⚠️  Reddit API not configured. Please set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET.")
+            return posts
 
         try:
             # Build search query from company keywords
@@ -58,84 +82,62 @@ class SocialMediaFetcher:
 
             # Calculate timestamp threshold
             time_threshold = datetime.now() - timedelta(hours=lookback_hours)
+            time_threshold_unix = time_threshold.timestamp()
 
-            for subreddit in subreddits:
+            for subreddit_name in subreddits:
                 for keyword in keywords:
                     try:
-                        # Search Reddit using public API
-                        # Note: Reddit's public API doesn't require authentication for basic searches
-                        url = f"https://www.reddit.com/r/{subreddit}/search.json"
-                        params = {
-                            'q': keyword,
-                            'sort': 'new',
-                            'limit': 25,
-                            'restrict_sr': 'on',
-                            't': 'day' if lookback_hours <= 24 else 'week'
-                        }
-                        # Reddit requires a descriptive User-Agent header
-                        # Format: <platform>:<app ID>:<version> (by /u/<username>)
-                        headers = {
-                            'User-Agent': 'python:srsentiment:v1.0.0 (sentiment analysis tool)'
-                        }
+                        # Get subreddit instance
+                        subreddit = self._reddit.subreddit(subreddit_name)
 
-                        # Add retry logic with exponential backoff
-                        max_retries = 3
-                        for attempt in range(max_retries):
-                            try:
-                                response = requests.get(url, params=params, headers=headers, timeout=10)
-                                response.raise_for_status()
-                                break  # Success, exit retry loop
-                            except requests.exceptions.HTTPError as http_err:
-                                if response.status_code == 403:
-                                    # 403 errors usually mean we're blocked or rate-limited
-                                    if attempt < max_retries - 1:
-                                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
-                                        print(f"Warning: Got 403 from r/{subreddit}, retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
-                                        time.sleep(wait_time)
-                                    else:
-                                        raise  # Max retries reached
-                                elif response.status_code == 429:
-                                    # Rate limit - wait longer
-                                    wait_time = int(response.headers.get('Retry-After', 60))
-                                    print(f"Warning: Rate limited by Reddit, waiting {wait_time}s...")
-                                    time.sleep(wait_time)
-                                else:
-                                    raise  # Other HTTP errors
+                        # Search for posts in the subreddit
+                        # Use time_filter for better performance
+                        time_filter = 'day' if lookback_hours <= 24 else ('week' if lookback_hours <= 168 else 'month')
 
-                        data = response.json()
+                        print(f"  Searching r/{subreddit_name} for '{keyword}'...")
 
-                        # Process posts
-                        if 'data' in data and 'children' in data['data']:
-                            for item in data['data']['children']:
-                                post_data = item['data']
+                        # Search posts
+                        search_results = subreddit.search(
+                            keyword,
+                            sort='new',
+                            time_filter=time_filter,
+                            limit=25
+                        )
 
-                                # Check if post is within time range
-                                post_time = datetime.fromtimestamp(post_data['created_utc'])
-                                if post_time < time_threshold:
-                                    continue
+                        post_count = 0
+                        for submission in search_results:
+                            # Check if post is within time range
+                            if submission.created_utc < time_threshold_unix:
+                                continue
 
-                                # Skip removed/deleted posts
-                                if post_data.get('removed_by_category') or post_data.get('selftext') == '[removed]':
-                                    continue
+                            # Skip removed/deleted posts
+                            if submission.removed_by_category or submission.selftext == '[removed]':
+                                continue
 
-                                posts.append(SocialMediaPost(
-                                    title=post_data.get('title', ''),
-                                    content=post_data.get('selftext', '')[:500],  # Limit content length
-                                    url=f"https://www.reddit.com{post_data.get('permalink', '')}",
-                                    published_at=post_time.isoformat(),
-                                    source=f"r/{subreddit}",
-                                    platform='reddit',
-                                    score=post_data.get('score', 0)
-                                ))
+                            posts.append(SocialMediaPost(
+                                title=submission.title,
+                                content=submission.selftext[:500] if submission.selftext else '',
+                                url=f"https://www.reddit.com{submission.permalink}",
+                                published_at=datetime.fromtimestamp(submission.created_utc).isoformat(),
+                                source=f"r/{subreddit_name}",
+                                platform='reddit',
+                                score=submission.score
+                            ))
+                            post_count += 1
 
-                        # Rate limiting: wait between requests to avoid being blocked
-                        time.sleep(2)  # Wait 2 seconds between requests
+                        if post_count > 0:
+                            print(f"    ✅ Found {post_count} posts")
+                        else:
+                            print(f"    No posts found")
+
+                        # Small delay to be respectful to Reddit's API
+                        time.sleep(1)
 
                     except Exception as e:
-                        print(f"Warning: Failed to fetch from r/{subreddit} for '{keyword}': {e}")
+                        print(f"  ⚠️  Failed to fetch from r/{subreddit_name} for '{keyword}': {e}")
                         continue
 
         except Exception as e:
-            print(f"Warning: Failed to fetch Reddit posts for {company.name}: {e}")
+            print(f"⚠️  Failed to fetch Reddit posts for {company.name}: {e}")
 
         return posts

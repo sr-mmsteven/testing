@@ -43,6 +43,10 @@ class RedditConfig:
 
     enabled: bool = True
     subreddits: List[str] = attrs.field(factory=lambda: ["stocks", "investing", "wallstreetbets"])
+    # OAuth credentials for Reddit API (required)
+    client_id: str = attrs.field(factory=lambda: os.getenv('REDDIT_CLIENT_ID', ''))
+    client_secret: str = attrs.field(factory=lambda: os.getenv('REDDIT_CLIENT_SECRET', ''))
+    user_agent: str = attrs.field(factory=lambda: os.getenv('REDDIT_USER_AGENT', 'python:srsentiment:v1.0.0 (by /u/your_username)'))
 
 
 @attrs.define
