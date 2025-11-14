@@ -6,8 +6,7 @@ from typing import List, Dict, TYPE_CHECKING
 from anthropic import Anthropic
 import attrs
 
-if TYPE_CHECKING:
-    from .config import Config, Company
+from .config import Config, Company
 
 
 @attrs.define

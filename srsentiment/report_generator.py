@@ -6,8 +6,7 @@ from datetime import datetime
 from typing import List, Dict, TYPE_CHECKING
 from pathlib import Path
 
-if TYPE_CHECKING:
-    from .config import Config
+from .config import Config
 import attrs
 
 
