@@ -38,6 +38,21 @@ class RSSFeedsConfig:
 
 
 @attrs.define
+class RedditConfig:
+    """Reddit configuration."""
+
+    enabled: bool = True
+    subreddits: List[str] = attrs.field(factory=lambda: ["stocks", "investing", "wallstreetbets"])
+
+
+@attrs.define
+class SocialMediaSourcesConfig:
+    """Social media sources configuration."""
+
+    reddit: RedditConfig = attrs.field(factory=RedditConfig)
+
+
+@attrs.define
 class NewsSourcesConfig:
     """News sources configuration."""
 
@@ -70,6 +85,7 @@ class Config:
 
     companies: List[Company] = attrs.field(factory=list)
     news_sources: NewsSourcesConfig = attrs.field(factory=NewsSourcesConfig)
+    social_media_sources: SocialMediaSourcesConfig = attrs.field(factory=SocialMediaSourcesConfig)
     report: ReportConfig = attrs.field(factory=ReportConfig)
     claude: ClaudeConfig = attrs.field(factory=ClaudeConfig)
 

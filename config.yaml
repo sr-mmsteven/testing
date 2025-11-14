@@ -42,6 +42,18 @@ news_sources:
       - "https://feeds.finance.yahoo.com/rss/2.0/headline"
       - "https://www.cnbc.com/id/100003114/device/rss/rss.html"
 
+# Social media sources configuration
+social_media_sources:
+  # Reddit (no API key required for basic public access)
+  reddit:
+    enabled: true
+    subreddits:
+      - "stocks"
+      - "investing"
+      - "wallstreetbets"
+      - "StockMarket"
+      - "options"
+
 # Report configuration
 report:
   format: "markdown"  # Options: markdown, html, text

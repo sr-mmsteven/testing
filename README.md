@@ -1,10 +1,11 @@
-# News Sentiment Report Generator
+# News & Social Media Sentiment Report Generator
 
-A Python tool that fetches daily news for specified companies and uses **Claude AI** (Anthropic) to generate comprehensive sentiment analysis reports.
+A Python tool that fetches daily news and social media posts for specified companies and uses **Claude AI** (Anthropic) to generate comprehensive sentiment analysis reports.
 
 ## Features
 
-- **Multi-Source News Fetching**: Aggregates news from NewsAPI and RSS feeds
+- **Multi-Source Data Fetching**: Aggregates news from NewsAPI and social media from Reddit
+- **Flexible Source Filtering**: Analyze news only, social media only, or both
 - **AI-Powered Sentiment Analysis**: Uses Claude AI to analyze sentiment and market impact
 - **Comprehensive Reports**: Generates detailed reports in Markdown, HTML, or plain text
 - **Configurable**: Easy YAML configuration for companies and settings
@@ -105,17 +106,23 @@ Your report will be generated in the `reports/` directory!
 ### Basic Usage
 
 ```bash
-# Generate report for all companies in config
-python main.py
+# Generate report for all companies using all sources (news + social media)
+news-sentiment
+
+# Analyze only social media sentiment (skip news articles)
+news-sentiment --sources social
+
+# Analyze only news articles (skip social media)
+news-sentiment --sources news
 
 # Generate report for specific companies
-python main.py --companies Apple --companies Tesla
+news-sentiment --companies Apple --companies Tesla
 
 # Generate HTML report instead of Markdown
-python main.py --format html
+news-sentiment --format html
 
 # Look back 48 hours instead of default 24
-python main.py --hours 48
+news-sentiment --hours 48
 ```
 
 ### Command Line Options
@@ -124,8 +131,9 @@ python main.py --hours 48
 -c, --config PATH       Path to configuration file (default: config.yaml)
 -o, --output PATH       Output file path (overrides config)
 --format FORMAT         Report format: markdown, html, or text
+--sources CHOICE        Data sources: all (default), news, or social
 --companies TEXT        Specific companies to analyze (can be used multiple times)
---hours N               Hours to look back for news (overrides config)
+--hours N               Hours to look back for content (overrides config)
 --no-banner             Suppress banner output
 --help                  Show help message and exit
 ```
@@ -133,14 +141,17 @@ python main.py --hours 48
 ### Examples
 
 ```bash
-# Quick report for Tesla in text format
-python main.py --companies Tesla --format text
+# Quick social media sentiment report for Tesla
+news-sentiment --companies Tesla --sources social --format text
 
 # Last 12 hours of news for Apple and Microsoft
-python main.py --companies Apple --companies Microsoft --hours 12
+news-sentiment --companies Apple --companies Microsoft --sources news --hours 12
 
-# Generate HTML report to specific location
-python main.py --format html --output ~/Desktop/report.html
+# Generate HTML report from all sources to specific location
+news-sentiment --format html --output ~/Desktop/report.html
+
+# Social media only sentiment for all configured companies
+news-sentiment --sources social
 ```
 
 ## Report Output
@@ -185,6 +196,14 @@ news_sources:
     feeds:
       - "https://feed-url-1.com"
       - "https://feed-url-2.com"
+
+social_media_sources:
+  reddit:
+    enabled: true
+    subreddits:
+      - "stocks"
+      - "investing"
+      - "wallstreetbets"
 
 report:
   format: "markdown"
@@ -244,10 +263,11 @@ testing/
 
 ## How It Works
 
-1. **News Fetching**: The script queries NewsAPI and RSS feeds for recent articles mentioning your target companies
-2. **Sentiment Analysis**: Each company's news is sent to Claude AI with a detailed prompt asking for sentiment analysis
-3. **Report Generation**: Claude's analysis is formatted into a beautiful report with overall sentiment, key themes, and market impact
-4. **Output**: The report is saved to the `reports/` directory in your chosen format
+1. **Data Fetching**: The script queries NewsAPI, RSS feeds, and social media (Reddit) for recent content mentioning your target companies
+2. **Source Filtering**: Choose to analyze all sources, news only, or social media only via the `--sources` flag
+3. **Sentiment Analysis**: Each company's content is sent to Claude AI with a detailed prompt asking for sentiment analysis
+4. **Report Generation**: Claude's analysis is formatted into a beautiful report with overall sentiment, key themes, and market impact
+5. **Output**: The report is saved to the `reports/` directory in your chosen format
 
 ## Package Management with UV
 
