@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from .news_fetcher import NewsFetcher
+from .social_media_fetcher import SocialMediaFetcher
 from .sentiment_analyzer import SentimentAnalyzer
 from .report_generator import ReportGenerator
 from .config import load_config, Config
@@ -93,26 +94,38 @@ def print_banner():
     is_flag=True,
     help='Suppress banner output'
 )
-def main(config, output, format, companies, hours, no_banner):
-    """Generate daily news sentiment reports using Claude AI.
+@click.option(
+    '--sources',
+    type=click.Choice(['all', 'news', 'social'], case_sensitive=False),
+    default='all',
+    help='Data sources to analyze: all (default), news only, or social media only'
+)
+def main(config, output, format, companies, hours, no_banner, sources):
+    """Generate sentiment reports from news and/or social media using Claude AI.
 
-    This tool fetches recent news articles for configured companies and uses
-    Claude AI to perform comprehensive sentiment analysis, generating detailed
-    reports in your chosen format.
+    This tool fetches recent news articles and social media posts for configured
+    companies and uses Claude AI to perform comprehensive sentiment analysis,
+    generating detailed reports in your chosen format.
 
     Examples:
 
-        # Generate report for all companies
-        python main.py
+        # Generate report for all companies using all sources
+        news-sentiment
+
+        # Analyze only social media sentiment (skip news)
+        news-sentiment --sources social
+
+        # Analyze only news articles (skip social media)
+        news-sentiment --sources news
 
         # Analyze specific companies
-        python main.py --companies Apple --companies Tesla
+        news-sentiment --companies Apple --companies Tesla
 
-        # Generate HTML report
-        python main.py --format html
+        # Generate HTML report from social media only
+        news-sentiment --sources social --format html
 
         # Look back 48 hours
-        python main.py --hours 48
+        news-sentiment --hours 48
     """
     # Print banner
     if not no_banner:
@@ -147,8 +160,8 @@ def main(config, output, format, companies, hours, no_banner):
 
     # Initialize components
     try:
-        breakpoint()
-        news_fetcher = NewsFetcher(config_data)
+        news_fetcher = NewsFetcher(config_data) if sources in ['all', 'news'] else None
+        social_media_fetcher = SocialMediaFetcher(config_data) if sources in ['all', 'social'] else None
         sentiment_analyzer = SentimentAnalyzer(config_data)
         report_generator = ReportGenerator(config_data)
     except Exception as e:
@@ -167,19 +180,36 @@ def main(config, output, format, companies, hours, no_banner):
         for i, company in enumerate(companies_bar, 1):
             click.echo(f"\n[{i}/{len(companies_list)}] Processing {company.name} ({company.ticker})...")
 
-            # Fetch news
-            click.echo(f"  📰 Fetching news articles...")
-            try:
-                articles = news_fetcher.fetch_company_news(company, lookback_hours)
-                click.echo(click.style(f"  ✓ Found {len(articles)} articles", fg='green'))
-            except Exception as e:
-                click.echo(click.style(f"  ✗ Error fetching news: {e}", fg='red'))
+            all_content = []
+
+            # Fetch news articles if enabled
+            if news_fetcher and sources in ['all', 'news']:
+                click.echo(f"  📰 Fetching news articles...")
+                try:
+                    articles = news_fetcher.fetch_company_news(company, lookback_hours)
+                    click.echo(click.style(f"  ✓ Found {len(articles)} news articles", fg='green'))
+                    all_content.extend(articles)
+                except Exception as e:
+                    click.echo(click.style(f"  ✗ Error fetching news: {e}", fg='red'))
+
+            # Fetch social media posts if enabled
+            if social_media_fetcher and sources in ['all', 'social']:
+                click.echo(f"  📱 Fetching social media posts...")
+                try:
+                    posts = social_media_fetcher.fetch_company_posts(company, lookback_hours)
+                    click.echo(click.style(f"  ✓ Found {len(posts)} social media posts", fg='green'))
+                    all_content.extend(posts)
+                except Exception as e:
+                    click.echo(click.style(f"  ✗ Error fetching social media: {e}", fg='red'))
+
+            if not all_content:
+                click.echo(click.style(f"  ⚠ No content found for {company.name}", fg='yellow'))
                 continue
 
             # Analyze sentiment
             click.echo(f"  🤖 Analyzing sentiment with Claude...")
             try:
-                analysis = sentiment_analyzer.analyze_company_news(company, articles)
+                analysis = sentiment_analyzer.analyze_company_content(company, all_content, sources)
                 sentiment_color = 'green' if 'positive' in analysis.overall_sentiment.lower() else (
                     'red' if 'negative' in analysis.overall_sentiment.lower() else 'yellow'
                 )

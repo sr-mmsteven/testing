@@ -52,15 +52,13 @@ class SentimentAnalyzer:
         return self.config.claude.temperature
 
     def analyze_company_news(self, company: "Company", articles: List) -> SentimentAnalysis:
-        """Analyze sentiment for all news articles about a company"""
-        # if not articles:
-        #     analysis = SentimentAnalysis(company.name, company.ticker)
-        #     analysis.overall_sentiment = "neutral"
-        #     analysis.summary = "No recent news articles found."
-        #     return analysis
+        """Analyze sentiment for all news articles about a company (backwards compatibility)"""
+        return self.analyze_company_content(company, articles, 'news')
 
-        # Build prompt with all articles
-        prompt = self._build_analysis_prompt(company, articles)
+    def analyze_company_content(self, company: "Company", content: List, source_type: str = 'all') -> SentimentAnalysis:
+        """Analyze sentiment for content (news articles and/or social media posts) about a company"""
+        # Build prompt with all content
+        prompt = self._build_analysis_prompt(company, content, source_type)
 
         # Call Claude API
         try:
@@ -75,7 +73,7 @@ class SentimentAnalyzer:
 
             # Parse Claude's response
             analysis_text = response.content[0].text
-            analysis = self._parse_analysis_response(company, analysis_text, articles)
+            analysis = self._parse_analysis_response(company, analysis_text, content)
 
             return analysis
 
@@ -87,24 +85,45 @@ class SentimentAnalyzer:
             analysis.summary = f"Failed to analyze sentiment: {str(e)}"
             return analysis
 
-    def _build_analysis_prompt(self, company: "Company", articles: List) -> str:
+    def _build_analysis_prompt(self, company: "Company", content: List, source_type: str = 'all') -> str:
         """Build the prompt for Claude API"""
-        articles_text = []
+        content_text = []
 
-        for i, article in enumerate(articles, 1):
-            articles_text.append(
-                f"Article {i}:\n"
-                f"Title: {article.title}\n"
-                f"Source: {article.source}\n"
-                f"Published: {article.published_at}\n"
-                f"Description: {article.description}\n"
-                f"URL: {article.url}\n"
-            )
+        for i, item in enumerate(content, 1):
+            # Check if it's a news article or social media post
+            if hasattr(item, 'platform'):  # Social media post
+                content_text.append(
+                    f"Social Media Post {i}:\n"
+                    f"Platform: {item.platform}\n"
+                    f"Source: {item.source}\n"
+                    f"Title: {item.title}\n"
+                    f"Content: {item.content}\n"
+                    f"Published: {item.published_at}\n"
+                    f"Score/Engagement: {item.score}\n"
+                    f"URL: {item.url}\n"
+                )
+            else:  # News article
+                content_text.append(
+                    f"News Article {i}:\n"
+                    f"Title: {item.title}\n"
+                    f"Source: {item.source}\n"
+                    f"Published: {item.published_at}\n"
+                    f"Description: {item.description}\n"
+                    f"URL: {item.url}\n"
+                )
 
-        prompt = f"""You are a financial news analyst. Analyze social media and any of the following news articles about {company.name} ({company.ticker}) and provide a comprehensive sentiment analysis.
+        # Adjust prompt based on source type
+        if source_type == 'social':
+            source_description = "social media posts"
+        elif source_type == 'news':
+            source_description = "news articles"
+        else:
+            source_description = "news articles and social media posts"
 
-News Articles:
-{chr(10).join(articles_text)}
+        prompt = f"""You are a financial analyst. Analyze the following {source_description} about {company.name} ({company.ticker}) and provide a comprehensive sentiment analysis.
+
+Content:
+{chr(10).join(content_text)}
 
 Please provide your analysis in the following structured format:
 
@@ -113,7 +132,7 @@ OVERALL_SENTIMENT: [Choose one: POSITIVE, NEGATIVE, NEUTRAL, or MIXED]
 SENTIMENT_SCORE: [Provide a score from -1.0 (very negative) to 1.0 (very positive)]
 
 KEY_THEMES:
-- [List 3-5 main themes or topics across the articles]
+- [List 3-5 main themes or topics across the content]
 
 MARKET_IMPACT: [Brief assessment of potential market impact - one paragraph]
 
@@ -124,7 +143,7 @@ SUMMARY:
 3. Key takeaways for investors]
 
 ARTICLE_HIGHLIGHTS:
-[For each significant article, provide a brief bullet point about its key message and sentiment]
+[For each significant piece of content, provide a brief bullet point about its key message and sentiment]
 
 Be objective, balanced, and focus on facts. Consider both immediate reactions and longer-term implications."""
 
