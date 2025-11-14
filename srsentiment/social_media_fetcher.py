@@ -5,6 +5,7 @@ import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import attrs
+import time
 
 from .config import Config, Company
 
@@ -71,10 +72,35 @@ class SocialMediaFetcher:
                             'restrict_sr': 'on',
                             't': 'day' if lookback_hours <= 24 else 'week'
                         }
-                        headers = {'User-Agent': 'News Sentiment Bot/1.0'}
+                        # Reddit requires a descriptive User-Agent header
+                        # Format: <platform>:<app ID>:<version> (by /u/<username>)
+                        headers = {
+                            'User-Agent': 'python:srsentiment:v1.0.0 (sentiment analysis tool)'
+                        }
 
-                        response = requests.get(url, params=params, headers=headers, timeout=10)
-                        response.raise_for_status()
+                        # Add retry logic with exponential backoff
+                        max_retries = 3
+                        for attempt in range(max_retries):
+                            try:
+                                response = requests.get(url, params=params, headers=headers, timeout=10)
+                                response.raise_for_status()
+                                break  # Success, exit retry loop
+                            except requests.exceptions.HTTPError as http_err:
+                                if response.status_code == 403:
+                                    # 403 errors usually mean we're blocked or rate-limited
+                                    if attempt < max_retries - 1:
+                                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                                        print(f"Warning: Got 403 from r/{subreddit}, retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                                        time.sleep(wait_time)
+                                    else:
+                                        raise  # Max retries reached
+                                elif response.status_code == 429:
+                                    # Rate limit - wait longer
+                                    wait_time = int(response.headers.get('Retry-After', 60))
+                                    print(f"Warning: Rate limited by Reddit, waiting {wait_time}s...")
+                                    time.sleep(wait_time)
+                                else:
+                                    raise  # Other HTTP errors
 
                         data = response.json()
 
@@ -101,6 +127,9 @@ class SocialMediaFetcher:
                                     platform='reddit',
                                     score=post_data.get('score', 0)
                                 ))
+
+                        # Rate limiting: wait between requests to avoid being blocked
+                        time.sleep(2)  # Wait 2 seconds between requests
 
                     except Exception as e:
                         print(f"Warning: Failed to fetch from r/{subreddit} for '{keyword}': {e}")
